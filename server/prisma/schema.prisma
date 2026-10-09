@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,4 +6,96 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        String    @id @default(uuid()) @db.Uuid
+  email                     String    @unique @db.VarChar(255)
+  passwordHash              String    @map("password_hash") @db.VarChar(255)
+  emailVerified             Boolean   @default(false) @map("email_verified")
+  verificationCodeHash      String?   @map("verification_code_hash") @db.VarChar(255)
+  verificationCodeExpiresAt DateTime? @map("verification_code_expires_at") @db.Timestamptz(6)
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  genres              Genre[]
+  personalMediaStates PersonalMediaState[]
+
+  @@map("users")
+}
+
+model MediaType {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique @db.VarChar(50)
+
+  media  Media[]
+  genres Genre[]
+
+  @@map("media_types")
+}
+
+model Media {
+  id          String   @id @default(uuid()) @db.Uuid
+  mediaTypeId String   @map("media_type_id") @db.Uuid
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  coverUrl    String?  @map("cover_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  mediaType          MediaType             @relation(fields: [mediaTypeId], references: [id], onDelete: Restrict)
+  genres              MediaGenre[]
+  personalMediaStates PersonalMediaState[]
+
+  @@index([mediaTypeId])
+  @@map("media")
+}
+
+model Genre {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  mediaTypeId String?  @map("media_type_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  mediaType MediaType? @relation(fields: [mediaTypeId], references: [id], onDelete: Restrict)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media     MediaGenre[]
+
+  @@index([mediaTypeId])
+  @@index([userId])
+  @@index([userId, mediaTypeId])
+  @@map("genres")
+}
+
+model MediaGenre {
+  mediaId String @map("media_id") @db.Uuid
+  genreId String @map("genre_id") @db.Uuid
+
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([mediaId, genreId])
+  @@index([genreId])
+  @@map("media_genres")
+}
+
+model PersonalMediaState {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  mediaId   String   @map("media_id") @db.Uuid
+  status    String   @db.VarChar(30)
+  rating    Int?     @db.SmallInt
+  notes     String?  @db.Text
+  progress  Int?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mediaId])
+  @@index([mediaId])
+  @@map("personal_media_states")
 }
